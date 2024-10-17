@@ -1,0 +1,18 @@
+Code für ESP32S3 Dev und heltec V3 Board
+- für externen DAC I2C MAX98375 und Dot-Matrix-Display via I2C
+
+Folgende Versionen der Arduino IDE und verwendeten Bibliotheken sind zu verwenden:
+
+Arduino IDE Version 1.8.19
+ESP32 Version 3.0.5
+LiquidCrystal I2C Version 1.1.2
+AiEsp32RotaryEncoder Version 1.4.0
+AudioI2S		repository at github "https://github.com/schreibfaul1/ESP32-audioI2S"
+
+AudioI2S als Zip downloaden und über "sketch" -> "bibliothek einbinden" ->"zip bibliothek hinzufügen" hinzufügen
+
+Einstellung Board in Arduino:
+ESP32S3Dev Module
+Partition Scheme: "16MB Flash (2MB App,...)"
+PSRAM: "OPI PSRAM"
+Port: "/dev/ttyACMO"
