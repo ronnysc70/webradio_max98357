@@ -12,12 +12,15 @@
 //#define heltec
 #define ESP32S3Dev
 //WLAN access fill with your credentials
-#define SSID "******"
-#define PSK "******"
+#define SSID "luke skyrouter"
+#define PSK "#ronny1712"
 #define MAXWLANTRY 10  // try to connect with stored credentials MAXWLANTRY times
 int tryCount = 0;
 
-unsigned long delayTimeStamp = 0;
+//Buttons
+#define favButton 21
+unsigned long buttonTimeStamp = 0;
+unsigned long buttonPressedTime = 0;
 
 //structure for station list
 typedef struct {
@@ -25,7 +28,8 @@ typedef struct {
   char * name; //stations name
 } Station;
 
-#define STATIONS 10 //number of stations in tzhe list
+
+#define STATIONS 10 //number of stations in the list
 
 //station list can easily be modified to support other stations  
 Station stationlist[STATIONS] PROGMEM = {
@@ -50,13 +54,20 @@ Preferences pref;
 //Pins ESP32S3: SDA: 42, SCL: 41
 LiquidCrystal_I2C lcd(0x27,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 
-
 //Special character to show a speaker icon for current station
-uint8_t speaker[8]  = {0x3,0x5,0x19,0x11,0x19,0x5,0x3};
+uint8_t speaker[8]  = {0x03,0x05,0x19,0x11,0x19,0x05,0x03};
+uint8_t fullspeaker[8] = {0x03,0x07,0x1F,0x1F,0x1F,0x1F,0x07,0x03};
+
 //global variables
+unsigned long delayTimeStamp = 0;   //Zeitstempel zur Berechnung Verzögerungen
 uint8_t curStation = 0;   //index for current selected station in stationlist
 uint8_t actStation = 0;   //index for current station in station list used for streaming 
 uint32_t lastchange = 0;  //time of last selection change
+unsigned int maxVol = 64; //maximale Einstellung Lautstärke
+unsigned int curVol;      //gespeicherte Lautstärke   
+bool btnStation = false;  //Taster "Fav"
+bool rotaryVol = true;    //Encoder betätigt Lautstärke
+bool streamReady = false; //Stream läuft
 
 
 //Meldungen einzelne Zeile
@@ -69,13 +80,27 @@ int lcdPrint(int x, int y, const char *msg)
 
 //show name of current station on LCD display
 //show the speaker symbol in front if current station = active station
-void showStation() {
+void showStation() 
+{
   int loff=0;
   lcd.clear();
-  if (curStation == actStation) {
+  if (curStation == actStation) 
+  {
     lcd.home();
-    lcd.print(char(1));
+    if (!(streamReady))
+    {
+      lcd.print(char(1));   // offener Lautstprecher Symbol
+    }
+    else
+    {
+      lcd.print(char(2));   // gefülltes Lautsprecher Symbol
+    }
+    
     loff=2;
+  }
+  if (btnStation)   //wenn Taster gedrückt kein Symbol am Anfang
+  {
+    loff=0;
   }
   lcd.setCursor(loff,0);
   lcd.print(curStation+1);
@@ -133,6 +158,8 @@ int setup_wifi()
   return(false);
 }
 
+
+
 //setup
 void setup() 
 {
@@ -140,12 +167,31 @@ void setup()
   Wire.begin(SDA,SCL, 100000);
   //Init Serial
   Serial.begin(115200);
-  //Setup Audio
-  setup_audio();
+  
+  curStation = 0;
+  curVol = 2;
+  //start preferences instance
+  pref.begin("radio", false);
+  //set current station to saved value if available
+  if (pref.isKey("station")) curStation = pref.getUShort("station");      //EEPROM Station lesen
+  if (pref.isKey("volume")) curVol = pref.getUShort("volume");      //EEPROM volume lesen
+  Serial.printf("Gespeicherte Lautstärke %i\n",curVol);
+  Serial.printf("Gespeicherte Station %i von %i\n",curStation,STATIONS);
+  if (curStation >= STATIONS) curStation = 0;
+  //set active station to current station 
+  actStation = curStation;
+  
+  //init Rotary / Buttons
   setup_rotary();
+  pinMode (favButton, INPUT_PULLUP);
+ 
   //Setup LCD
   lcd.init();
   lcd.backlight();
+  //init the special Symbol for LCD
+  lcd.createChar(1, speaker);
+  lcd.createChar(2, fullspeaker);
+  
   //init Wifi
   while (!setup_wifi()) 
   {
@@ -154,29 +200,20 @@ void setup()
     lcdPrint(1, 0, "WLAN nicht da..");
     delay(1000);
   }
-  
-  //init the displa
-  lcd.createChar(1, speaker);
-  //set current station to 0
-  curStation = 0;
-  //start preferences instance
-  pref.begin("radio", false);
-  //set current station to saved value if available
-  if (pref.isKey("station")) curStation = pref.getUShort("station");      //EEPROM Station lesen, wieder auskommentieren
-  Serial.printf("Gespeicherte Station %i von %i\n",curStation,STATIONS);
-  if (curStation >= STATIONS) curStation = 0;
-  //set active station to current station 
-  actStation = curStation;
+  //Setup Audio
+  setup_audio();
+    
   //show on display and start streaming setEncoderValue(curStation);
-  showStation();
-  
   startUrl();
+  showStation();
   delayTimeStamp = millis();
+  
 }
 
 void loop() {
   
   audio_loop();
+  
   //read events from rotary encoder
   rotary_loop();
 }
