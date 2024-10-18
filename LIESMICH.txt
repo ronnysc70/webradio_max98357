@@ -16,3 +16,7 @@ ESP32S3Dev Module
 Partition Scheme: "16MB Flash (2MB App,...)"
 PSRAM: "OPI PSRAM"
 Port: "/dev/ttyACMO"
+
+
+neu: Lautstärkeinstellung mit Encoder (encoder drehen im Hauptmenu verändert Lautstärke sofort, Speicherung des Wertes im EEPROM nach 2sek. Nichtbetätigung,
+durch drücken der "Fav" Taste kann ein neuer Sender eingestellt werden und mit drücken des Encoders übernommen
