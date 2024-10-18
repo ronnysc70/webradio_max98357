@@ -12,8 +12,8 @@
 //#define heltec
 #define ESP32S3Dev
 //WLAN access fill with your credentials
-#define SSID "luke skyrouter"
-#define PSK "#ronny1712"
+#define SSID "********"
+#define PSK "*******"
 #define MAXWLANTRY 10  // try to connect with stored credentials MAXWLANTRY times
 int tryCount = 0;
 
