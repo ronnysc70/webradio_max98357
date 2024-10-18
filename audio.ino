@@ -11,13 +11,15 @@ Audio audio;
 void startUrl()
 {
   audio.connecttohost(stationlist[actStation].url);
+  streamReady = false;
 }
 
 // to be called in 'setup()'
 void setup_audio()
 {
   audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
-  audio.setVolume(4); // default 0...21
+  audio.setVolumeSteps(64); // max 255
+  audio.setVolume(curVol); // lade gespeicherte Lautstärke
 }
 void audio_loop()
 {
@@ -32,4 +34,10 @@ void audio_info(const char *info)
 {
     Serial.print("audio_info: "); 
     Serial.println(info);
+    if (strstr(info, "stream ready") != NULL)     //sucht danach
+    {
+      lcd.home();
+      lcd.print(char(2));                         //Änderung des Lautsprecher-Symbol auf gefüllt
+      streamReady = true;
+    }
 }

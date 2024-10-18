@@ -22,46 +22,88 @@
 
 //instance for rotary encoder
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, ROTARY_ENCODER_B_PIN, ROTARY_ENCODER_BUTTON_PIN, ROTARY_ENCODER_VCC_PIN, ROTARY_ENCODER_STEPS);
-/*
-int setEncoderValue(int value)
-{
-  if (value >= STATIONS) value = STATIONS - 1;
-  if (value < 0) value = 0;
-  rotaryEncoder.setEncoderValue(value);
-  return 0;
-}
-*/
+
 //handle events from rotary encoder
 void rotary_loop()
 {
+  // process button press:
+  int buttonPressed = digitalRead(favButton);
+  if (buttonPressed == 0)
+  {
+    buttonTimeStamp = millis();                        //Entprellung, bounce2 geht nicht
+    if (buttonTimeStamp - buttonPressedTime > 25)     //25msek. mind. Signal
+    {
+      rotaryVol = false;
+      rotaryEncoder.setBoundaries(0, STATIONS, true); //minValue, maxValue,
+      rotaryEncoder.setEncoderValue(actStation);
+      btnStation = true;
+      showStation();
+      lastchange = millis();
+      buttonPressedTime = buttonTimeStamp;
+    }
+  }
+    
   //dont do anything unless value changed
   if (rotaryEncoder.encoderChanged())
   {
     uint16_t v = rotaryEncoder.readEncoder();
-    Serial.printf("Station: %i\n",v);
-    //set new currtent station and show its name
-    if (v < STATIONS) {
-      curStation = v;
-      showStation();
+    if (!(rotaryVol))
+    {
+      Serial.printf("Station: %i\n",v);
+      //set new currtent station and show its name
+      if (v < STATIONS) 
+      {
+        curStation = v;
+        showStation();
+        lastchange = millis();
+      }
+    }
+    else
+    {
+      lcd.setCursor(0,1);
+      lcd.print("Volume:         ");
+      lcd.setCursor(9,1);
+      lcd.print("  ");
+      lcd.print(v);
+      audio.setVolume(v); // default 0...21
+      curVol = v;
       lastchange = millis();
     }
   }
-  //if no change happened within 10s set active station as current station
-  if (curStation != actStation && lastchange > 0 && (millis() - lastchange) > 10000){
+
+  //if no change volume happened within 2s show Stationname
+  if (rotaryVol && lastchange > 0 && (millis() - lastchange) > 2000)
+  {
+    pref.putUShort("volume",curVol);
+    lastchange = 0;
+    showStation();
+  }
+  //if no change station happened within 5s set active station as current station
+  if (btnStation && lastchange > 0 && (millis() - lastchange) > 5000)
+  {
     curStation = actStation;
     lastchange = 0;
+    rotaryVol = true;
+    btnStation = false;
     showStation();
   }
   //react on rotary encoder switch
   if (rotaryEncoder.isEncoderButtonClicked())
   {
-    //set current station as active station and start streaming
-    actStation = curStation;
-    Serial.printf("Active station %s\n",stationlist[actStation].name);
-    pref.putUShort("station",curStation);
-    startUrl();
-    //call show station to display the speaker symbol
-    showStation();
+    if (btnStation)
+    {
+      rotaryVol = true;
+      btnStation = false;
+       //set current station as active station and start streaming
+      actStation = curStation;
+      Serial.printf("Active station %s\n",stationlist[actStation].name);
+      pref.putUShort("station",curStation);
+      startUrl();
+      //call show station to display the speaker symbol
+      showStation();
+      rotaryEncoder.setBoundaries(0, maxVol, false); //minValue, maxValue,
+      rotaryEncoder.setEncoderValue(curVol);
+    }
   }
 }
 
@@ -76,6 +118,7 @@ void setup_rotary()
   //start rotary encoder instance
   rotaryEncoder.begin();
   rotaryEncoder.setup(readEncoderISR);
-  rotaryEncoder.setBoundaries(0, STATIONS, true); //minValue, maxValue, circleValues true|false (when max go to min and vice versa)
+  rotaryEncoder.setBoundaries(0, maxVol, false); //minValue, maxValue, circleValues true|false (when max go to min and vice versa)
+  rotaryEncoder.setEncoderValue(curVol);
   rotaryEncoder.disableAcceleration();  
 }
