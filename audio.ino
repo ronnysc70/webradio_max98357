@@ -1,11 +1,3 @@
-#include "Audio.h" //see my repository at github "https://github.com/schreibfaul1/ESP32-audioI2S"
-// Digital I/O used
-
-#define I2S_DOUT      4
-#define I2S_BCLK      5
-#define I2S_LRC       6
-
-Audio audio;
 
 //start playing a stream from current active station
 void startUrl()
@@ -18,7 +10,7 @@ void startUrl()
 void setup_audio()
 {
   audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
-  audio.setVolumeSteps(64); // max 255
+  audio.setVolumeSteps(55); // max 255, derzeit Vorgabe 55, Einstellung mit Encoder nur bis 50
   audio.setVolume(curVol); // lade gespeicherte Lautstärke
 }
 void audio_loop()
