@@ -31,7 +31,7 @@ LiquidCrystal_I2C lcd(0x27,16,2);  // set the LCD address to 0x27 for a 16 chars
 #define SCL 41
 
 //Audio instance
-#include "Audio.h" //see my repository at github "https://github.com/schreibfaul1/ESP32-audioI2S"
+#include "Audio.h" //see repository at github "https://github.com/schreibfaul1/ESP32-audioI2S"
 // Digital I/O used
 
 #define I2S_DOUT      4
@@ -110,6 +110,8 @@ unsigned int curVol;      //gespeicherte Lautstärke
 bool btnStation = false;  //Taster "Fav"
 bool rotaryVol = true;    //Encoder betätigt Lautstärke
 bool streamReady = false; //Stream läuft
+bool internetLost = false; //Internet DNS nicht erreichbar
+bool updateIsRunning = false;   //Update läuft
 bool btnMode = false;     //Taste "Mode" gedrückt
 bool btnStandby = false;     //Taste Standby gedrückt
 time_t now;                          // this are the seconds since Epoch (1970) - UTC
@@ -124,6 +126,7 @@ void onOTAStart()
   lcd.clear();
   lcd.home();
   lcd.print("Firmware-Update");
+  updateIsRunning = true;
 }
 void onOTAEnd(bool success)
 {
@@ -155,7 +158,8 @@ int setup_wifi()
     lcdPrint(0, 0, "suche WLAN...");
     WiFi.mode(WIFI_STA);
     WiFi.begin(SSID, PSK);
-     while ((WiFi.status() != WL_CONNECTED) && (tryCount<MAXWLANTRY)) {
+     while ((WiFi.status() != WL_CONNECTED) && (tryCount<MAXWLANTRY)) 
+     {
        Serial.print(".");
        lcdPrint(tryCount, 1, ">");
        delay(1000);
@@ -197,7 +201,10 @@ void setup()
   if (curStation >= STATIONS) curStation = 0;
   //set active station to current station 
   actStation = curStation;
-  
+  if (curVol < 10)
+  {
+    curVol = 10;
+  }
   //init Rotary / Buttons
   setup_rotary();
   pinMode (favButton, INPUT_PULLUP);
@@ -256,22 +263,52 @@ void setup()
   delayTimeRefresh = millis();
 }
 
-void loop() {
-  if (!(btnStandby))
+void loop() 
+{
+  if (!(updateIsRunning))
   {
-    audio_loop();
-    rotary_loop();
-  }
-  else        //Standby gewählt
-  {
-    if ((millis() - delayTimeRefresh) > 1000)     //jede Sekunde Aktualisierung der Uhrzeit und Datum
+    if (!(btnStandby))
+    {
+      audio_loop();
+      rotary_loop();
+    }
+    else        //Standby gewählt
+    {
+      if ((millis() - delayTimeRefresh) > 1000)     //jede Sekunde Aktualisierung der Uhrzeit und Datum
+      {
+        delayTimeRefresh = millis();
+        showStandby();
+      }
+    }
+    if ((millis() - delayTimeRefresh) > 2000)       //aller 2 Sekunden Überprüfung WLAN und Internet Verbindung
     {
       delayTimeRefresh = millis();
-      showStandby();
+      if (WiFi.status() != WL_CONNECTED)
+      {
+        Serial.println("reconnect WIFI");
+        lcd.clear();
+        lcdPrint(0, 0, "Huch, WLAN weg..");
+        lcdPrint(0, 1, "...verbinde neu");
+        WiFi.disconnect();
+        WiFi.reconnect();
+        while (WiFi.status() != WL_CONNECTED)
+        {
+          Serial.println(".");
+        }
+        if (btnStandby)
+        {
+          showStandby();
+        }
+        else
+        {
+          showStation();
+        }
+      }
+      
     }
-  }
+    //read events from buttons
+    button_loop();
+  }  
   server.handleClient();
   ElegantOTA.loop(); 
-  //read events from buttons
-  button_loop();
 }

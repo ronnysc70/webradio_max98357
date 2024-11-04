@@ -38,19 +38,23 @@ void showStation()
     
     loff=2;
   }
+  lcd.setCursor(loff, 0);
   if (btnStation)   //wenn Taster gedrückt kein Symbol am Anfang
   {
+    lcd.setCursor(0,0);
     loff=0;
+    lcd.print(curStation+1);
+    if (curStation > 8) 
+    {
+      lcd.setCursor((loff+2), 0);
+    } 
+    else 
+    {
+      lcd.setCursor((loff+1), 0);
+    }
+    lcd.print(":");
   }
-  lcd.setCursor(loff, 0);
-  lcd.print(curStation+1);
-  if (curStation > 8) {
-    lcd.setCursor((loff+2), 0);
-  } 
-  else {
-    lcd.setCursor((loff+1), 0);
-  }
-  lcd.print(":");
+
   String name = String(stationlist[curStation].name);
   if (name.length() < 12-loff)
     lcd.print(name);
