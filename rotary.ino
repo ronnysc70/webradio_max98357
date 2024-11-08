@@ -10,6 +10,16 @@ void rotary_loop()
       if (!(rotaryVol))
       {
         Serial.printf("Station: %i\n",v);
+        uint8_t cnt = 0; //overflow counter, prevents endless loop if no station is enabled
+        while ((!stationlist[v].enabled) && (cnt < 2))
+        {
+          v++;
+          if (v >= STATIONS)
+          {
+            v=0;
+            cnt++;
+          }
+        }
         //set new currtent station and show its name
         if (v < STATIONS) 
         {

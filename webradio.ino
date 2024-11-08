@@ -1,10 +1,10 @@
 #include <WiFi.h>
-#include <WiFiClient.h>
 #include <WebServer.h>
 #include <ElegantOTA.h> 
 #include <Arduino.h>
 #include <Wire.h>
 #include <time.h>
+
 
 /* Configuration of NTP */
 // choose the best fitting NTP server pool for your country
@@ -14,6 +14,8 @@
 // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
 #define MY_TZ "CET-1CEST,M3.5.0/02,M10.5.0/03"
 
+//home page and template for options
+#include "index.h"
 //Webserver instance
 WebServer server(80);
 
@@ -68,33 +70,20 @@ bool buttonPressed = false;
 //instance for rotary encoder
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, ROTARY_ENCODER_B_PIN, ROTARY_ENCODER_BUTTON_PIN, ROTARY_ENCODER_VCC_PIN, ROTARY_ENCODER_STEPS);
 
-
 //structure for station list
 typedef struct {
-  char * url;  //stream url
-  char * name; //stations name
+  char url[150];  //stream url
+  char name[32];  //stations name
+  uint8_t enabled;//flag to activate the station
 } Station;
+#define STATIONS 20 //number of stations in the list
 
-
-#define STATIONS 10 //number of stations in the list
-
-//station list can easily be modified to support other stations  
-Station stationlist[STATIONS] PROGMEM = {
-{"https://mdr-284290-2.sslcast.mdr.de/mdr/284290/2/mp3/high/stream.mp3","MDR Sachsen Anhalt"},
-{"http://stream.radiobrocken.de/live/mp3-256/play.m3u","Radio Brocken"},
-{"https://stream.radiosaw.de/saw/mp3-192","SAW"},
-{"http://stream.89.0rtl.de/live/mp3-256/", "89,0 RTL"},
-{"https://mdr-284330-0.sslcast.mdr.de/mdr/284330/0/mp3/high/stream.mp3","MDR Sputnik"},
-{"https://absolut-relax.live-sm.absolutradio.de/absolut-relax/stream/mp3", "Absolut Relax"},
-{"https://stream.saw-musikwelt.de/saw-in-the-mix/mp3-192", "Radio SAW in the Mix"},
-{"http://mdr-284331-2.sslcast.mdr.de/mdr/284331/2/mp3/high/stream.mp3","MDR Sputnik in the mix"},
-{"http://stream.89.0rtl.de/mix/mp3-256/play.m3u", "89,0 RTL in the Mix"}, 
-{"http://stream.sunshine-live.de/live/mp3-192","Sunshine Live"}
-};
-
+//gloabal variables
+Station stationlist[STATIONS];
 
 //instance of prefernces
 Preferences pref;
+Preferences sender;       //für Senderliste
 
 //Special character to show a speaker icon for current station
 uint8_t speaker[8]  = {0x03,0x05,0x19,0x11,0x19,0x05,0x03};
@@ -183,6 +172,7 @@ int setup_wifi()
 //setup
 void setup() 
 {
+  
   //I2C Init
   Wire.begin(SDA,SCL, 100000);
   //Init Serial
@@ -192,13 +182,15 @@ void setup()
   curVol = 2;
   //start preferences instance
   pref.begin("radio", false);
-  //set current station to saved value if available
-  if (pref.isKey("station")) curStation = pref.getUShort("station");      //EEPROM Station lesen
+  sender.begin("senderlist",false);
+	//set current station to saved value if available
+	if (pref.isKey("station")) curStation = pref.getUShort("station");
+	if (curStation >= STATIONS) curStation = 0; //check to avoid invalid station number
   if (pref.isKey("volume")) curVol = pref.getUShort("volume");      //EEPROM volume lesen
   if (pref.isKey("standby")) btnStandby = pref.getBool("standby");      //EEPROM Standby lesen
   Serial.printf("Gespeicherte Lautstärke %i\n",curVol);
   Serial.printf("Gespeicherte Station %i von %i\n",curStation,STATIONS);
-  if (curStation >= STATIONS) curStation = 0;
+  
   //set active station to current station 
   actStation = curStation;
   if (curVol < 10)
@@ -237,17 +229,13 @@ void setup()
     ESP.restart();
   }
   //init Server
-  server.on("/", []()
-  {
-    server.send(200, "text/plain", "Webradio Update, 'IP-Adresse'/update eingeben");
-  });
+  setup_senderList(); //load station list from preferences
+	setup_webserver();
+  Serial.println("Webserver läuft");
   //init OTA
   ElegantOTA.begin(&server);
   ElegantOTA.onStart(onOTAStart);
   ElegantOTA.onEnd(onOTAEnd);
-
-  server.begin();
-  Serial.println("HTTP Server startet");
 
   if (!(btnStandby))
   {
@@ -309,6 +297,7 @@ void loop()
     //read events from buttons
     button_loop();
   }  
-  server.handleClient();
+  //Check for http requests
+	webserver_loop();
   ElegantOTA.loop(); 
 }

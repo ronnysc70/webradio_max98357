@@ -56,10 +56,10 @@ void showStation()
   }
 
   String name = String(stationlist[curStation].name);
-  if (name.length() < 12-loff)
+  if (name.length() < 12)
     lcd.print(name);
   else {
-    uint8_t p = name.lastIndexOf(" ",(15-loff)); //if name does not fit, split line on space
+    uint8_t p = name.lastIndexOf(" ",15); //if name does not fit, split line on space
     lcd.print(name.substring(0,p));
     lcd.setCursor(0,1);
     lcd.print(name.substring(p+1,p+17));
