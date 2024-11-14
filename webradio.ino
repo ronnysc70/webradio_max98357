@@ -1,10 +1,12 @@
 #include <WiFi.h>
 #include <WebServer.h>
+#include <NetworkClientSecure.h>
 #include <ElegantOTA.h> 
 #include <Arduino.h>
 #include <Wire.h>
 #include <time.h>
 
+NetworkClientSecure httpsClient;
 
 /* Configuration of NTP */
 // choose the best fitting NTP server pool for your country
@@ -249,6 +251,7 @@ void setup()
     showStandby();
   }
   delayTimeRefresh = millis();
+  httpsClient.setInsecure();
 }
 
 void loop() 
@@ -270,6 +273,7 @@ void loop()
     }
     if ((millis() - delayTimeRefresh) > 2000)       //aller 2 Sekunden Überprüfung WLAN und Internet Verbindung
     {
+      int retry = 0;
       delayTimeRefresh = millis();
       if (WiFi.status() != WL_CONNECTED)
       {
@@ -278,7 +282,9 @@ void loop()
         lcdPrint(0, 0, "Huch, WLAN weg..");
         lcdPrint(0, 1, "...verbinde neu");
         WiFi.disconnect();
-        WiFi.reconnect();
+        WiFi.softAPdisconnect(true);
+        WiFi.mode(WIFI_STA);
+        WiFi.begin(SSID, PSK);
         while (WiFi.status() != WL_CONNECTED)
         {
           Serial.println(".");
@@ -292,7 +298,44 @@ void loop()
           showStation();
         }
       }
-      
+      // teste ob eine Verbindung zum Internet besteht wg. capitive Portal
+ 
+      else
+      {
+        while((!httpsClient.connect("www.google.de", 443)) && (retry < 15))
+        {
+          delay(100);
+          Serial.print(".");
+          retry++;   
+        }
+        if (retry==15)
+        {
+          Serial.println("keine Verbindung");
+          lcd.clear();
+          lcdPrint(0, 0, "kein Internet..");
+          lcdPrint(0, 1, "..neu anmelden");
+          internetLost = true;
+        }
+        else
+        {
+          Serial.println("Internet erreichbar");
+          if (internetLost)
+          {
+            internetLost = false;
+            Serial.println("Internet wieder erreichbar, starte Stream neu");
+            if (btnStandby)
+            {
+              showStandby();
+            }
+            else
+            {
+              showStation();
+              startUrl();
+            }
+          }
+        }
+        httpsClient.stop();
+      }
     }
     //read events from buttons
     button_loop();
