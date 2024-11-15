@@ -287,7 +287,8 @@ void loop()
         WiFi.begin(SSID, PSK);
         while (WiFi.status() != WL_CONNECTED)
         {
-          Serial.println(".");
+          Serial.print(".");
+          delay(100);
         }
         if (btnStandby)
         {
@@ -302,13 +303,13 @@ void loop()
  
       else
       {
-        while((!httpsClient.connect("www.google.de", 443)) && (retry < 15))
+        while((!httpsClient.connect("www.google.de", 443, 2000)) && (retry < 5))  //3. Wert ist timeout der Verbindung in ms
         {
           delay(100);
-          Serial.print(".");
+          Serial.print("<*>");
           retry++;   
         }
-        if (retry==15)
+        if (retry==5)
         {
           Serial.println("keine Verbindung");
           lcd.clear();
