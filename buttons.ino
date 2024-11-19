@@ -1,88 +1,64 @@
 // process button press:
 void button_loop()
 {
-  //Standby-Taster auswerten
-  int buttonPressedStandby = digitalRead(standbyButton);
-  if (buttonPressedStandby == 0)
+  // process button press:
+  for (int i = 0; i<NUMBUTTONS; i++) 
   {
-    buttonTimeStamp = millis();                        //Entprellung, bounce2 geht nicht
-    if (buttonTimeStamp - buttonPressedTime > 200)   //200msek. mind. Signal
-    {
-      if (!(buttonPressed))             //nur einmal ausführen
-      {
-        if (!(btnStandby))
-        {
-          audio.stopSong();
-          lcd.clear();
-          lcd.home();
-          lcd.print("Auf Wiedersehen");
-          delay(3000);
-          lcd.clear();
-          showStandby();
-          btnStandby = true;
-          Serial.println("standby");
-        }
-        else
-        {
-          rotaryVol = true;
-          startUrl();
+     buttons[i].update(); // Update the Bounce instance
+     if ( buttons[i].fell() ) // If it fell
+     {
+       switch(i) {
+        case 0:                     //Standby-Taster auswerten
+                if (!(btnStandby))
+                {
+                  audio.stopSong();
+                  lcd.clear();                      //ESP32S3
+                  lcd.home();
+                  lcd.print("Auf Wiedersehen");
+                  delay(2000);
+                  lcd.clear();
+                  showStandby();
+                  btnStandby = true;
+                  Serial.println("standby");
+                }
+                else
+                {
+                  rotaryVol = true;
+                  startUrl();
           //call show station to display the speaker symbol
-          showStation();
-          rotaryEncoder.setBoundaries(0, maxVol, false); //minValue, maxValue,
-          rotaryEncoder.setEncoderValue(curVol);
-          btnStandby = false;
-        }
-        pref.putBool("standby", btnStandby);
-        buttonPressed = true;
-        buttonPressedTime = buttonTimeStamp;
-      }
-    }
+                  showStation();
+                  rotaryEncoder.setBoundaries(0, maxVol, false); //minValue, maxValue,
+                  rotaryEncoder.setEncoderValue(curVol);
+                  btnStandby = false;
+                }
+                pref.putBool("standby", btnStandby);
+                break;
+        case 1:                             //Mode Taster
+                if (!(btnStandby))
+                {
+                  btnMode = true;
+                  lcd.clear();                      //ESP32S3
+                  lcd.home();
+                  lcd.print("IP-Adresse:");
+                  lcdPrint(0, 1, WiFi.localIP().toString().c_str());
+                  lastchange = millis();
+                }
+                break;
+        case 2:                           //Fav-Taster
+                if (!(btnStandby))
+                {
+                  btnStation = true;
+                  rotaryVol = false;
+                  rotaryEncoder.setBoundaries(0, STATIONS, true); //minValue, maxValue,
+                  rotaryEncoder.setEncoderValue(actStation);
+                  showStation();
+                  lastchange = millis();
+                }
+                break;
+       }
+     }
   }
-  else
-  {
-    buttonPressed = false;
-  }
-  //die anderen Taster auswerten, aber nur wenn kein Standby
-  if (!(btnStandby))
-  {
-    int buttonPressedFav = digitalRead(favButton);
-    if (buttonPressedFav == 0)
-    {
-      buttonTimeStamp = millis();                        //Entprellung, bounce2 geht nicht
-      if (buttonTimeStamp - buttonPressedTime > 100)     //100msek. mind. Signal
-      {
-        rotaryVol = false;
-        rotaryEncoder.setBoundaries(0, STATIONS, true); //minValue, maxValue,
-        rotaryEncoder.setEncoderValue(actStation);
-        btnStation = true;
-        showStation();
-        lastchange = millis();
-        buttonPressedTime = buttonTimeStamp;
-      }
-    }
-    int buttonPressedMode = digitalRead(modeButton);
-    if (buttonPressedMode == 0)
-    {
-      buttonTimeStamp = millis();                        //Entprellung, bounce2 geht nicht
-      if (buttonTimeStamp - buttonPressedTime > 100)     //100msek. mind. Signal
-      {
-        if (!(buttonPressed))           //nur einmal ausführen
-        {
-          btnMode = true;
-          lcd.clear();
-          lcd.home();
-          lcd.print("IP-Adresse:");
-          lcdPrint(0, 1, WiFi.localIP().toString().c_str());
-          lastchange = millis();
-          buttonPressed = true;
-        }
-        buttonPressedTime = buttonTimeStamp;
-      }
-    }
-    else
-    {
-      buttonPressed = false;
-    }
+ 
    //if no change station happened within 5s set active station as current station
     if (btnStation && (millis() - lastchange) > 5000)
     {
@@ -92,7 +68,7 @@ void button_loop()
       btnStation = false;
       showStation();
     }
-  //if no change station happened within 3s set active station as current station
+  //nach 3 sek. Anzeige IP-Adresse zurück zur Stationsanzeige 
     if (btnMode && (millis() - lastchange) > 3000)
     {
       curStation = actStation;
@@ -101,5 +77,4 @@ void button_loop()
       btnMode = false;
       showStation();
     }
-  }
 }

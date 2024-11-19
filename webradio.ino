@@ -5,6 +5,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <time.h>
+#include <Bounce2.h>
 
 NetworkClientSecure httpsClient;
 
@@ -49,13 +50,10 @@ Audio audio;
 #define MAXWLANTRY 10  // try to connect with stored credentials MAXWLANTRY times
 int tryCount = 0;
 
-//Buttons
-#define favButton 21
-#define modeButton 47
-#define standbyButton 38
-unsigned long buttonTimeStamp = 0;
-unsigned long buttonPressedTime = 0;
-bool buttonPressed = false;
+//Button Einstellungen
+const uint8_t button_pins[] = {38, 47, 21}; // button pins 42 = Standby, 41 = Mode, 40 = Fav
+#define NUMBUTTONS sizeof(button_pins)
+Bounce * buttons = new Bounce[NUMBUTTONS];
 
 //library for rotary encoder
 #include "AiEsp32RotaryEncoder.h"
@@ -201,11 +199,15 @@ void setup()
   }
   //init Rotary / Buttons
   setup_rotary();
-  pinMode (favButton, INPUT_PULLUP);
-  pinMode (modeButton, INPUT_PULLUP);
-  pinMode (standbyButton, INPUT_PULLUP);
   
-   //Setup Audio
+  // Make input & enable pull-up resistors on pushbuttons
+  for (int i=0; i<NUMBUTTONS; i++) 
+  {
+    buttons[i].attach( button_pins[i], INPUT_PULLUP); // setup the bounce instance for the current button
+    buttons[i].interval(50); // interval in ms
+  }
+  
+  //Setup Audio
   setup_audio();
   
   //Setup LCD
